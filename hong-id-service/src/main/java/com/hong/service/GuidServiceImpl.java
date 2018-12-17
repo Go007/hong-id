@@ -124,7 +124,10 @@ public class GuidServiceImpl implements GuidService {
                 counter.setMax(0L);
             }
             // 生成格式如下：前缀（业务系统）+日期8位+生成的序列
-            // 需要保证原子特性
+            /** 需要保证原子特性
+             *  https://stackoverflow.com/questions/3964211/when-to-use-atomicreference-in-java
+             *  https://www.cnblogs.com/love-jishu/p/5007882.html
+             */
             AtomicReference<Long> start = new AtomicReference<>(counter.getMax() + 1);
             int size = counter.getStepSize();
             Long end = start.get() + size;
