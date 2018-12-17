@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.hong.mapper.CounterMapper">
+    <resultMap id="BaseResultMap" type="com.hong.entity.Counter">
+        <id column="id" property="id" jdbcType="BIGINT"/>
+        <result column="system_name" property="systemName" jdbcType="VARCHAR"/>
+        <result column="biz_name" property="bizName" jdbcType="VARCHAR"/>
+        <result column="prefix" property="prefix" jdbcType="VARCHAR"/>
+        <result column="is_date" property="isDate" jdbcType="INTEGER"/>
+        <result column="date_format" property="dateFormat" jdbcType="VARCHAR"/>
+        <result column="min" property="min" jdbcType="BIGINT"/>
+        <result column="current" property="current" jdbcType="BIGINT"/>
+        <result column="max" property="max" jdbcType="BIGINT"/>
+        <result column="is_loop" property="isLoop" jdbcType="INTEGER"/>
+        <result column="create_time" property="createTime" jdbcType="BIGINT"/>
+        <result column="last_modify" property="lastModify" jdbcType="BIGINT"/>
+        <result column="step_size" property="stepSize" jdbcType="INTEGER"/>
+        <result column="length" property="length" jdbcType="INTEGER"/>
+    </resultMap>
+    <sql id="Base_Column_List">
+		id, system_name,biz_name, prefix, is_date, date_format, min, current,
+		max, is_loop,
+		create_time,
+		last_modify, step_size, length
+	</sql>
+    <select id="selectByPrimaryKey" resultMap="BaseResultMap"
+            parameterType="java.lang.Long">
+        select
+        <include refid="Base_Column_List"/>
+        from t_system_counter
+        where id = #{id,jdbcType=BIGINT}
+    </select>
+
+    <select id="selectByName" resultMap="BaseResultMap"
+            parameterType="java.lang.String">
+        select
+        <include refid="Base_Column_List"/>
+        from t_system_counter
+        where biz_name = #{bizName,jdbcType=VARCHAR}
+    </select>
+
+    <select id="selectBySystemNameAndBizName" resultMap="BaseResultMap">
+        select
+        <include refid="Base_Column_List"/>
+        from t_system_counter
+        where system_name = #{systemName,jdbcType=VARCHAR}
+        and biz_name = #{bizName,jdbcType=VARCHAR}
+    </select>
+
+    <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
+		delete from
+		t_system_counter
+		where id = #{id,jdbcType=BIGINT}
+	</delete>
+    <insert id="insert" parameterType="com.dafycredit.id.bean.Counter">
+		insert into t_system_counter
+		(id, system_name, biz_name, prefix,
+		is_date, date_format, min,
+		current, max, is_loop,
+		create_time, last_modify, step_size,
+		length)
+		values
+		(#{id,jdbcType=BIGINT},
+		#{systemName,jdbcType=VARCHAR},
+		#{bizName,jdbcType=VARCHAR},
+		#{prefix,jdbcType=VARCHAR},
+		#{isDate,jdbcType=INTEGER},
+		#{dateFormat,jdbcType=VARCHAR}, #{min,jdbcType=BIGINT},
+		#{current,jdbcType=BIGINT}, #{max,jdbcType=BIGINT},
+		#{isLoop,jdbcType=INTEGER},
+		#{createTime,jdbcType=BIGINT},
+		#{lastModify,jdbcType=BIGINT}, #{stepSize,jdbcType=INTEGER},
+		#{length,jdbcType=INTEGER})
+	</insert>
+    <insert id="insertSelective" parameterType="com.dafycredit.id.bean.Counter">
+        insert into t_system_counter
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                id,
+            </if>
+            <if test="bizName != null">
+                biz_name,
+            </if>
+            <if test="prefix != null">
+                prefix,
+            </if>
+            <if test="isDate != null">
+                is_date,
+            </if>
+            <if test="dateFormat != null">
+                date_format,
+            </if>
+            <if test="min != null">
+                min,
+            </if>
+            <if test="current != null">
+                current,
+            </if>
+            <if test="max != null">
+                max,
+            </if>
+            <if test="isLoop != null">
+                is_loop,
+            </if>
+            <if test="createTime != null">
+                create_time,
+            </if>
+            <if test="lastModify != null">
+                last_modify,
+            </if>
+            <if test="stepSize != null">
+                step_size,
+            </if>
+            <if test="length != null">
+                length,
+            </if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">
+                #{id,jdbcType=BIGINT},
+            </if>
+            <if test="bizName != null">
+                #{bizName,jdbcType=VARCHAR},
+            </if>
+            <if test="prefix != null">
+                #{prefix,jdbcType=VARCHAR},
+            </if>
+            <if test="isDate != null">
+                #{isDate,jdbcType=INTEGER},
+            </if>
+            <if test="dateFormat != null">
+                #{dateFormat,jdbcType=VARCHAR},
+            </if>
+            <if test="min != null">
+                #{min,jdbcType=BIGINT},
+            </if>
+            <if test="current != null">
+                #{current,jdbcType=BIGINT},
+            </if>
+            <if test="max != null">
+                #{max,jdbcType=BIGINT},
+            </if>
+            <if test="isLoop != null">
+                #{isLoop,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                #{createTime,jdbcType=BIGINT},
+            </if>
+            <if test="lastModify != null">
+                #{lastModify,jdbcType=BIGINT},
+            </if>
+            <if test="stepSize != null">
+                #{stepSize,jdbcType=INTEGER},
+            </if>
+            <if test="length != null">
+                #{length,jdbcType=INTEGER},
+            </if>
+        </trim>
+    </insert>
+    <update id="updateByPrimaryKeySelective" parameterType="com.dafycredit.id.bean.Counter">
+        update t_system_counter
+        <set>
+            <if test="bizName != null">
+                biz_name = #{bizName,jdbcType=VARCHAR},
+            </if>
+            <if test="prefix != null">
+                prefix = #{prefix,jdbcType=VARCHAR},
+            </if>
+            <if test="isDate != null">
+                is_date = #{isDate,jdbcType=INTEGER},
+            </if>
+            <if test="dateFormat != null">
+                date_format = #{dateFormat,jdbcType=VARCHAR},
+            </if>
+            <if test="min != null">
+                min = #{min,jdbcType=BIGINT},
+            </if>
+            <if test="current != null">
+                current = #{current,jdbcType=BIGINT},
+            </if>
+            <if test="max != null">
+                max = #{max,jdbcType=BIGINT},
+            </if>
+            <if test="isLoop != null">
+                is_loop = #{isLoop,jdbcType=INTEGER},
+            </if>
+            <if test="createTime != null">
+                create_time = #{createTime,jdbcType=BIGINT},
+            </if>
+            <if test="lastModify != null">
+                last_modify = #{lastModify,jdbcType=BIGINT},
+            </if>
+            <if test="stepSize != null">
+                step_size = #{stepSize,jdbcType=INTEGER},
+            </if>
+            <if test="length != null">
+                length = #{length,jdbcType=INTEGER},
+            </if>
+        </set>
+        where id = #{id,jdbcType=BIGINT}
+    </update>
+    <update id="updateByPrimaryKey" parameterType="com.dafycredit.id.bean.Counter">
+		update
+		t_system_counter
+		set biz_name = #{bizName,jdbcType=VARCHAR},
+		prefix =
+		#{prefix,jdbcType=VARCHAR},
+		is_date = #{isDate,jdbcType=INTEGER},
+		date_format = #{dateFormat,jdbcType=VARCHAR},
+		min =
+		#{min,jdbcType=BIGINT},
+		current = #{current,jdbcType=BIGINT},
+		max =
+		#{max,jdbcType=BIGINT},
+		is_loop = #{isLoop,jdbcType=INTEGER},
+		create_time = #{createTime,jdbcType=BIGINT},
+		last_modify =
+		#{lastModify,jdbcType=BIGINT},
+		step_size =
+		#{stepSize,jdbcType=INTEGER},
+		length = #{length,jdbcType=INTEGER}
+		where
+		id = #{id,jdbcType=BIGINT}
+	</update>
+</mapper>
