@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface GuidService {
     /**
      * 申请单个ID
-     * @param name,具体服务名称，name可以考虑枚举变量
+     * @param name,具体服务名称,可以考虑枚举变量
      * @return
      */
     @RequestMapping(value = "/id/nextValue", method = RequestMethod.GET)

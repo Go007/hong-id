@@ -2,11 +2,11 @@ package com.hong.service;
 
 import com.hong.bean.Sequence;
 import com.hong.common.bean.Result;
+import com.hong.common.utils.DateUtils;
 import com.hong.common.utils.SystemClock;
 import com.hong.entity.Counter;
 import com.hong.mapper.CounterMapper;
 import org.apache.commons.lang3.StringUtils;
-import org.omg.CORBA.SystemException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,10 +14,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Global Uniqe ID Generator
+ * leaf-segment  瓶颈在于数据库的单点问题
+ */
 @Service
 public class GuidServiceImpl implements GuidService {
 
@@ -31,6 +39,15 @@ public class GuidServiceImpl implements GuidService {
     @Autowired
     private CounterMapper counterMapper;
 
+    /**
+     * 预先在数据库中给每个服务分配好id生成的起始值min和max以及步长step
+     * 第一次请求生成id时,根据服务名先从数据库中拉取出对应的Segment(下面即为Counter对象),
+     * 转换为Sequence对象放到内存缓存中(这里指ConcurrentHashMap),
+     * 后面相同服务的请求则直接从Map中取出,但每次请求记得要判断数据是否溢出,如果溢出,
+     * 则以数据库中配置好的固定步长更新id数据范围的起始值。
+     * @param name,具体服务名称,可以考虑枚举变量
+     * @return
+     */
     @Override
     public Result getSingleId(String name) {
         Result result = new Result();
@@ -95,22 +112,22 @@ public class GuidServiceImpl implements GuidService {
      * @paramta:@return
      * @return:Sequence
      */
-    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED)
+    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED,rollbackFor = Exception.class)
     public Sequence applyNextSequence(String name) {
         Sequence sequence = null;
         try {
-            logger.info("start:" + System.currentTimeMillis());
+            logger.info("start:" + SystemClock.now());
             //考虑分布式锁,name为key,保证同一时刻,查询数据没有其他线程update
             Counter counter = counterMapper.selectBySystemNameAndBizName("shop", name);
-            logger.info("查询数据库count对象" + counter.toString() + "\r\n");
+            logger.info("查询数据库count对象:" + counter.toString() + "\r\n");
             if (counter.getMax() == null) {
-                counter.setMax((long) 0);
+                counter.setMax(0L);
             }
             // 生成格式如下：前缀（业务系统）+日期8位+生成的序列
-            AtomicReference<Long> start;// 需要保证原子特性
-            start = new AtomicReference<>(counter.getMax() + 1);
-            Long end = start.get() + counter.getStepSize();
+            // 需要保证原子特性
+            AtomicReference<Long> start = new AtomicReference<>(counter.getMax() + 1);
             int size = counter.getStepSize();
+            Long end = start.get() + size;
             int contentLength = counter.getLength();
             String pre = counter.getPrefix();
             counter.setMin(start.get());
@@ -123,7 +140,7 @@ public class GuidServiceImpl implements GuidService {
             String dateformatStr = counter.getDateFormat();
             sequence = new Sequence(name, pre, contentLength, start.get(), end, size, isDate, dateformatStr);
             SEQUENCE_HOLDER.put(name, sequence);
-            logger.debug("end:" + System.currentTimeMillis());
+            logger.debug("end:" + SystemClock.now());
         } catch (Exception e) {
             logger.error("申请序列异常name[{}]", name, e);
         }
@@ -133,17 +150,17 @@ public class GuidServiceImpl implements GuidService {
     /**
      * @throws
      * @Title: generateId
-     * @Description: 按照一定规则生成id
+     * @Description: 按照一定规则生成固定长度Id
      * @paramta:@param sequence
      * @paramta:@return
      * @return:String
      */
-    private String generateId(Sequence sequence) {// 生成固定长度Id
+    private String generateId(Sequence sequence) {
         StringBuilder genIdBuilder = new StringBuilder();
         String date = StringUtils.EMPTY;
         if (sequence.isDate) {
             // 对应数据库日期格式
-            date = DateUtil.dateToStr(new Date(), sequence.dateFormart);
+            date = DateUtils.dateTime2Str(LocalDateTime.now(),sequence.dateFormat);
         }
         // 下一个值
         long value = sequence.nextValue();
@@ -163,14 +180,14 @@ public class GuidServiceImpl implements GuidService {
         String valueStr;
         // 剩余补零位数
         if (remainLen > 0) {
-            String formart = "%0" + remainLen + "d";
-            String fill = String.format(formart, 0);
+            String format = "%0" + remainLen + "d";
+            String fill = String.format(format, 0);
             valueStr = fill + value;
         } else {
             valueStr = String.valueOf(value);
         }
         // String genId = String.format("%s%s%s%s", sequence.pre, date, rand, valueStr);//
-        // 前缀（2）+时间(8)位++随机字符串2位+生成的字符长度,不足补全long最大（9223372036854775807）20位
+        // 前缀（2）+时间(8)位+随机字符串2位+生成的字符长度,不足补全long最大（9223372036854775807）20位
         genIdBuilder.append(sequence.pre).append(date).append(valueStr);
         return genIdBuilder.toString();
     }
