@@ -12,5 +12,11 @@
     <artifactId>hong-id-api</artifactId>
 
     <name>hong-id-api</name>
-
+    <dependencies>
+        <dependency>
+            <groupId>com.hong</groupId>
+            <artifactId>hong-application-common</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+    </dependencies>
 </project>
