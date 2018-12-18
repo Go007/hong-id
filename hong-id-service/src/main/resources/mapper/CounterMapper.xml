@@ -47,6 +47,12 @@
         and biz_name = #{bizName,jdbcType=VARCHAR}
     </select>
 
+    <select id="getAll" resultType="com.hong.entity.Counter">
+        select
+        <include refid="Base_Column_List"/>
+        from t_system_counter
+    </select>
+
     <delete id="deleteByPrimaryKey" parameterType="java.lang.Long">
 		delete from
 		t_system_counter

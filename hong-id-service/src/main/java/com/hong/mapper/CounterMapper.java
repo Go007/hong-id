@@ -4,6 +4,8 @@ import com.hong.entity.Counter;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface CounterMapper {
     int deleteByPrimaryKey(Long id);
@@ -21,4 +23,6 @@ public interface CounterMapper {
     int updateByPrimaryKey(Counter record);
 
     Counter selectBySystemNameAndBizName(@Param("systemName") String systemName, @Param("bizName") String bizName);
+
+    List<Counter> getAll();
 }
