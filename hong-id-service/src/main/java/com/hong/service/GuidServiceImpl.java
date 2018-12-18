@@ -153,7 +153,7 @@ public class GuidServiceImpl implements GuidService {
             counter.setMax(end);
             counter.setLastModify(SystemClock.now());
             /**
-             * 因为加了内存缓存,这里的更新操作时间周期以数据库中设定的step为周期,防止了频繁更新数据库加锁影响性能
+             * 因为加了本地内存缓存,这里的更新操作时间周期以数据库中设定的step为周期,防止了频繁更新数据库加锁影响性能
              * 这里有个小问题:因为表设计中有个表示当前最新序列值的字段current,但是current是实时更新的,所以这里没有同步current值
              */
             int effectRow = counterMapper.updateByPrimaryKey(counter);
