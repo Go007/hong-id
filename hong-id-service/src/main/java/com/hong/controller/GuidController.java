@@ -32,12 +32,12 @@ public class GuidController {
     @GetMapping("/testGuidUnderConcurrency")
     public Result testGuidUnderConcurrency() {
         Result result = new Result();
-        final CountDownLatch cdl0 = new CountDownLatch(10);
-        final CountDownLatch cdl1 = new CountDownLatch(10);
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        final CountDownLatch cdl0 = new CountDownLatch(100);
+        final CountDownLatch cdl1 = new CountDownLatch(100);
+        ExecutorService executorService = Executors.newFixedThreadPool(100);
         Set<Object> idSet = new ConcurrentSkipListSet<>();
         long start = SystemClock.now();
-        for (int i=0;i<10;i++){
+        for (int i=0;i<100;i++){
             executorService.submit(() -> {
                 try {
                     cdl0.await();

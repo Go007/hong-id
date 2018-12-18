@@ -47,7 +47,7 @@
         and biz_name = #{bizName,jdbcType=VARCHAR}
     </select>
 
-    <select id="getAll" resultType="com.hong.entity.Counter">
+    <select id="getAll" resultMap="BaseResultMap">
         select
         <include refid="Base_Column_List"/>
         from t_system_counter

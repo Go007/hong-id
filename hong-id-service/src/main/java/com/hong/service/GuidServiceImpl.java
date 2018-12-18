@@ -3,10 +3,12 @@ package com.hong.service;
 import com.hong.annotations.LockAction;
 import com.hong.annotations.RedisParameterLocked;
 import com.hong.bean.Sequence;
+import com.hong.bean.WarnUpData;
 import com.hong.common.bean.Result;
 import com.hong.common.utils.DateUtils;
 import com.hong.common.utils.SystemClock;
 import com.hong.entity.Counter;
+import com.hong.lock.RedissonLocker;
 import com.hong.mapper.CounterMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -41,43 +43,54 @@ public class GuidServiceImpl implements GuidService {
     @Autowired
     private CounterMapper counterMapper;
 
+    @Autowired
+    private RedissonLocker redissonLocker;
+
+    private static final String SYSTEM_NAME = "shop";
+
     /**
      * 预先在数据库中给每个服务分配好id生成的起始值min和max以及步长step
      * 第一次请求生成id时,根据服务名先从数据库中拉取出对应的Segment(下面即为Counter对象),
      * 转换为Sequence对象放到内存缓存中(这里指ConcurrentHashMap),
      * 后面相同服务的请求则直接从Map中取出,但每次请求记得要判断数据是否溢出,如果溢出,
      * 则以数据库中配置好的固定步长更新id数据范围的起始值。
-     *
+     * <p>
      * 这里有个问题:存在以下两种情况会造成瞬间CPU负载过大,惊群效应
      * 1.第一次涌入大量并发请求的瞬间因为 SEQUENCE_HOLDER 还没有初始化,会造成并发请求阻塞以及重复id
      * 2.某一瞬间并发请求量较大,且刚好 Sequence 中的 current 将要溢出,会造成和1相同的影响
-     *
+     * <p>
      * 因此这里的关键问题是 SEQUENCE_HOLDER 的处理,如何能够确保请求的id总是从 SEQUENCE_HOLDER 中拿到?
      * 即 SEQUENCE_HOLDER 中数据更新问题.
-     *
+     * <p>
      * 同时要考虑分布式系统,可以加一个分布式锁
-     *
+     * <p>
      * TODO 在每次服务重启 或者 Sequence中的current将要溢出时,提前将各个服务对应的 Sequence 更新到 SEQUENCE_HOLDER ?
+     *
      * @param name,具体服务名称,可以考虑枚举变量
      * @return
      */
-    /*@LockAction(keepMills = 30)
+   /* @LockAction(keepMills = 30)
     @Override
     public Result getSingleId(@RedisParameterLocked String name) {*/
     @Override
-    public Result getSingleId(String name) {
+    public Result getSingleId(@RedisParameterLocked String name) {
         Result result = new Result();
         try {
             if (StringUtils.isBlank(name)) {
                 throw new IllegalArgumentException("序列名称不能为空");
             }
-            // 获取序列
-            Sequence sequence = SEQUENCE_HOLDER.get(name);
-            // 未加载到SEQUENCE_HOLDER中,或者溢出时需要重新向数据库申请
-            if (sequence == null || sequence.isOverFlow()) {
-                sequence = applyNextSequence(name);
-            }
-            result.setData(generateId(sequence));
+
+            redissonLocker.lock(String.format("com.hong.service.GuidServiceImpl.getSingleId-%s:%s",SYSTEM_NAME,name),() -> {
+                // 获取序列
+                Sequence sequence = SEQUENCE_HOLDER.get(SYSTEM_NAME + "#" + name);
+                // 未加载到SEQUENCE_HOLDER中,或者溢出时需要重新向数据库申请
+                if (sequence == null || sequence.isOverFlow()) {
+                    sequence = applyNextSequence(name);
+                }
+                result.setData(generateId(sequence));
+                return null;
+            });
+
         } catch (Exception e) {
             //返回uuid
             result.setData(generateSingleId(name));
@@ -134,7 +147,7 @@ public class GuidServiceImpl implements GuidService {
         try {
             logger.info("start:" + SystemClock.now());
             //考虑分布式锁,name为key,保证同一时刻,查询数据没有其他线程update
-            Counter counter = counterMapper.selectBySystemNameAndBizName("shop", name);
+            Counter counter = counterMapper.selectBySystemNameAndBizName(SYSTEM_NAME, name);
             logger.info("查询数据库count对象:" + counter.toString() + "\r\n");
             if (counter.getMax() == null) {
                 counter.setMax(0L);
