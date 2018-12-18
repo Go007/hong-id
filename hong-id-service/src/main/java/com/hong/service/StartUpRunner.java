@@ -1,6 +1,7 @@
 package com.hong.service;
 
 import com.hong.bean.Sequence;
+import com.hong.bean.WarnUpData;
 import com.hong.common.utils.ObjectUtils;
 import com.hong.entity.Counter;
 import com.hong.mapper.CounterMapper;
@@ -9,10 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * <br>Spring Boot启动预加载数据</br>
@@ -24,8 +22,6 @@ public class StartUpRunner implements CommandLineRunner {
 
     @Autowired
     private CounterMapper counterMapper;
-
-    public static final Map<String, Sequence> SEQUENCE_HOLDER = new HashMap<>();
 
     @Override
     public void run(String... strings) throws Exception {
@@ -39,7 +35,7 @@ public class StartUpRunner implements CommandLineRunner {
             }
             boolean isDate = (counter.getIsDate() == null ? true:counter.getIsDate() == 1);
             sequence = new Sequence(counter.getBizName(), counter.getPrefix(), counter.getLength(), counter.getMin(), counter.getMax(), counter.getStepSize(), isDate, counter.getDateFormat());
-            SEQUENCE_HOLDER.put(counter.getBizName(),sequence);
+            WarnUpData.SEQUENCE_HOLDER.put(counter.getBizName(),sequence);
         }
     }
 }
