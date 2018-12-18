@@ -52,7 +52,7 @@
 		t_system_counter
 		where id = #{id,jdbcType=BIGINT}
 	</delete>
-    <insert id="insert" parameterType="com.dafycredit.id.bean.Counter">
+    <insert id="insert" parameterType="com.hong.entity.Counter">
 		insert into t_system_counter
 		(id, system_name, biz_name, prefix,
 		is_date, date_format, min,
@@ -72,7 +72,7 @@
 		#{lastModify,jdbcType=BIGINT}, #{stepSize,jdbcType=INTEGER},
 		#{length,jdbcType=INTEGER})
 	</insert>
-    <insert id="insertSelective" parameterType="com.dafycredit.id.bean.Counter">
+    <insert id="insertSelective" parameterType="com.hong.entity.Counter">
         insert into t_system_counter
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="id != null">
@@ -157,7 +157,7 @@
             </if>
         </trim>
     </insert>
-    <update id="updateByPrimaryKeySelective" parameterType="com.dafycredit.id.bean.Counter">
+    <update id="updateByPrimaryKeySelective" parameterType="com.hong.entity.Counter">
         update t_system_counter
         <set>
             <if test="bizName != null">
@@ -199,7 +199,7 @@
         </set>
         where id = #{id,jdbcType=BIGINT}
     </update>
-    <update id="updateByPrimaryKey" parameterType="com.dafycredit.id.bean.Counter">
+    <update id="updateByPrimaryKey" parameterType="com.hong.entity.Counter">
 		update
 		t_system_counter
 		set biz_name = #{bizName,jdbcType=VARCHAR},

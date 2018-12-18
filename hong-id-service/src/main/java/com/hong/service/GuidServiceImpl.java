@@ -1,5 +1,7 @@
 package com.hong.service;
 
+import com.hong.annotations.LockAction;
+import com.hong.annotations.RedisParameterLocked;
 import com.hong.bean.Sequence;
 import com.hong.common.bean.Result;
 import com.hong.common.utils.DateUtils;
@@ -45,9 +47,23 @@ public class GuidServiceImpl implements GuidService {
      * 转换为Sequence对象放到内存缓存中(这里指ConcurrentHashMap),
      * 后面相同服务的请求则直接从Map中取出,但每次请求记得要判断数据是否溢出,如果溢出,
      * 则以数据库中配置好的固定步长更新id数据范围的起始值。
+     *
+     * 这里有个问题:存在以下两种情况会造成瞬间CPU负载过大,惊群效应
+     * 1.第一次涌入大量并发请求的瞬间因为 SEQUENCE_HOLDER 还没有初始化,会造成并发请求阻塞以及重复id
+     * 2.某一瞬间并发请求量较大,且刚好 Sequence 中的 current 将要溢出,会造成和1相同的影响
+     *
+     * 因此这里的关键问题是 SEQUENCE_HOLDER 的处理,如何能够确保请求的id总是从 SEQUENCE_HOLDER 中拿到?
+     * 即 SEQUENCE_HOLDER 中数据更新问题.
+     *
+     * 同时要考虑分布式系统,可以加一个分布式锁
+     *
+     * TODO 在每次服务重启 或者 Sequence中的current将要溢出时,提前将各个服务对应的 Sequence 更新到 SEQUENCE_HOLDER ?
      * @param name,具体服务名称,可以考虑枚举变量
      * @return
      */
+    /*@LockAction(keepMills = 30)
+    @Override
+    public Result getSingleId(@RedisParameterLocked String name) {*/
     @Override
     public Result getSingleId(String name) {
         Result result = new Result();
@@ -112,7 +128,7 @@ public class GuidServiceImpl implements GuidService {
      * @paramta:@return
      * @return:Sequence
      */
-    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED,rollbackFor = Exception.class)
+    @Transactional(timeout = 10, isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public Sequence applyNextSequence(String name) {
         Sequence sequence = null;
         try {
@@ -136,6 +152,10 @@ public class GuidServiceImpl implements GuidService {
             counter.setMin(start.get());
             counter.setMax(end);
             counter.setLastModify(SystemClock.now());
+            /**
+             * 因为加了内存缓存,这里的更新操作时间周期以数据库中设定的step为周期,防止了频繁更新数据库加锁影响性能
+             * 这里有个小问题:因为表设计中有个表示当前最新序列值的字段current,但是current是实时更新的,所以这里没有同步current值
+             */
             int effectRow = counterMapper.updateByPrimaryKey(counter);
             logger.debug("update数据库count对象" + counter.toString() + "\r\n");
             logger.debug("更新受影响行数" + effectRow);
@@ -153,7 +173,7 @@ public class GuidServiceImpl implements GuidService {
     /**
      * @throws
      * @Title: generateId
-     * @Description: 按照一定规则生成固定长度Id
+     * @Description: 按照一定规则生成固定长度Id, 生成的序列的长度>=20,即如果不足20位,在自增序列的前面补0;超过20位,则以实际长度为准
      * @paramta:@param sequence
      * @paramta:@return
      * @return:String
@@ -163,7 +183,7 @@ public class GuidServiceImpl implements GuidService {
         String date = StringUtils.EMPTY;
         if (sequence.isDate) {
             // 对应数据库日期格式
-            date = DateUtils.dateTime2Str(LocalDateTime.now(),sequence.dateFormat);
+            date = DateUtils.dateTime2Str(LocalDateTime.now(), sequence.dateFormat);
         }
         // 下一个值
         long value = sequence.nextValue();
@@ -190,7 +210,7 @@ public class GuidServiceImpl implements GuidService {
             valueStr = String.valueOf(value);
         }
         // String genId = String.format("%s%s%s%s", sequence.pre, date, rand, valueStr);//
-        // 前缀（2）+时间(8)位+随机字符串2位+生成的字符长度,不足补全long最大（9223372036854775807）20位
+        // 前缀（prefix）+ 时间(date)位 + 自增序列,不足设定的长度,则补全  long最大（9223372036854775807,2^64 - 1）
         genIdBuilder.append(sequence.pre).append(date).append(valueStr);
         return genIdBuilder.toString();
     }

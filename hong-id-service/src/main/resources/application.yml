@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: hong-id
+  profiles:
+    active: test
+
+  http:
+    encoding:
+      charset: UTF-8
+
+server:
+  port: 9119
+  servlet:
+    context-path: /
+
+debug: false
