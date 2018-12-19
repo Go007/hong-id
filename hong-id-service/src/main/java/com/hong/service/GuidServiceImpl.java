@@ -10,6 +10,7 @@ import com.hong.common.utils.SystemClock;
 import com.hong.entity.Counter;
 import com.hong.lock.RedissonLocker;
 import com.hong.mapper.CounterMapper;
+import com.hong.task.AsyncTask;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,11 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,9 +35,10 @@ public class GuidServiceImpl implements GuidService {
     private static final Logger logger = LoggerFactory.getLogger(GuidServiceImpl.class);
 
     /**
-     * 保存序列（一个数据序列对应一个sequence）
+     * 保存当前序列（一个数据序列对应一个sequence）
      */
-    private static final Map<String, Sequence> SEQUENCE_HOLDER = new ConcurrentHashMap<>();
+    //private static final Map<String, Sequence> SEQUENCE_HOLDER = new ConcurrentHashMap<>();
+    private static Map<String, Sequence> SEQUENCE_HOLDER = new ConcurrentHashMap<>();
 
     @Autowired
     private CounterMapper counterMapper;
@@ -47,6 +47,11 @@ public class GuidServiceImpl implements GuidService {
     private RedissonLocker redissonLocker;
 
     private static final String SYSTEM_NAME = "shop";
+
+    private static final float DEFAULT_LOAD_FACTOR = 0.70f;
+
+    @Resource
+    private AsyncTask asyncTask;
 
     /**
      * 预先在数据库中给每个服务分配好id生成的起始值min和max以及步长step
@@ -80,7 +85,7 @@ public class GuidServiceImpl implements GuidService {
                 throw new IllegalArgumentException("序列名称不能为空");
             }
 
-            redissonLocker.lock(String.format("com.hong.service.GuidServiceImpl.getSingleId-%s:%s",SYSTEM_NAME,name),() -> {
+            /*redissonLocker.lock(String.format("com.hong.service.GuidServiceImpl.getSingleId-%s:%s",SYSTEM_NAME,name),() -> {
                 // 获取序列
                 Sequence sequence = SEQUENCE_HOLDER.get(SYSTEM_NAME + "#" + name);
                 // 未加载到SEQUENCE_HOLDER中,或者溢出时需要重新向数据库申请
@@ -89,7 +94,45 @@ public class GuidServiceImpl implements GuidService {
                 }
                 result.setData(generateId(sequence));
                 return null;
-            });
+            });*/
+
+            // 获取序列
+            Sequence sequence = SEQUENCE_HOLDER.get(SYSTEM_NAME + "#" + name);
+
+            if (Objects.isNull(sequence)){ // 这里有跳跃问题
+                sequence = applyNextSequence(name);
+            }else if (sequence.isOverFlow()){
+                sequence = WarnUpData.NEXT_SEQUENCE_HOLDER.get(SYSTEM_NAME + "#" + name);
+                if (Objects.isNull(sequence)){
+                    sequence = applyNextSequence(name);
+                } else {
+                    SEQUENCE_HOLDER =  WarnUpData.NEXT_SEQUENCE_HOLDER;
+                    asyncTask.updateCounter(SYSTEM_NAME,name);
+                }
+            }
+
+            // 未加载到SEQUENCE_HOLDER中,或者溢出时需要重新向数据库申请
+            /*if (sequence == null || sequence.isOverFlow()) {
+                sequence = applyNextSequence(name);
+            }*/
+
+            /**
+             * 在当前Sequence消耗到DEFAULT_LOAD_FACTOR时,
+             * 开启异步任务,另起一个更新线程提前缓存下一个Sequence
+             */
+            long threshold = new Double(sequence.start + sequence.size * DEFAULT_LOAD_FACTOR).longValue();
+            if (sequence.current() >= threshold) {
+                // 判断NextSequence是否更新ok
+                Sequence nextSequence = WarnUpData.NEXT_SEQUENCE_HOLDER.get(SYSTEM_NAME + "#" + name);
+                long start;
+                if (Objects.isNull(nextSequence) ||
+                        ((start = sequence.end + 1) != nextSequence.start) ||
+                        (start + sequence.size != nextSequence.end)){
+                    asyncTask.loadNextSequence(sequence);
+                }
+            }
+
+            result.setData(generateId(sequence));
 
         } catch (Exception e) {
             //返回uuid
@@ -175,7 +218,7 @@ public class GuidServiceImpl implements GuidService {
             boolean isDate = (counter.getIsDate() == 1);
             String dateformatStr = counter.getDateFormat();
             sequence = new Sequence(name, pre, contentLength, start.get(), end, size, isDate, dateformatStr);
-            SEQUENCE_HOLDER.put(name, sequence);
+            SEQUENCE_HOLDER.put(SYSTEM_NAME + "#" + name, sequence);
             logger.debug("end:" + SystemClock.now());
         } catch (Exception e) {
             logger.error("申请序列异常name[{}]", name, e);
